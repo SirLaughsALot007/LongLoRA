@@ -63,8 +63,8 @@ def evaluate(model, data, batch_size, device, seq_length, sliding_window=256, us
 
     with torch.no_grad():
         print(f"Using seq length {seq_length}")
-        torch.set_printoptions(sci_mode=False)
-        for idx, (x, y) in tqdm(
+        torch.set_printoptions(sci_mode=False) 
+        for idx, (x, y) in tqdm(          # x输入序列，从data[i]到data[i+seq_len-1]的子序列；y是目标序列，y中的每个序列都是从x序列的第二个元素开始到x序列之后的下一个元素结束，对于同一个索引i，y对应的序列是data[i+1]到data[i+seq_len]的子序列
             enumerate(
                 get_as_batch(
                     data['val'], 
@@ -82,16 +82,23 @@ def evaluate(model, data, batch_size, device, seq_length, sliding_window=256, us
             val_loss = 0.
             acc = 0.
             cnt = 0
-
-            for part_idx, i in enumerate(range(0, x.shape[1], seq_length)):
-                part_len = x[:, i:i + seq_length].shape[1]
+            # x和y都是[batch_size, seq_length]
+            for part_idx, i in enumerate(range(0, x.shape[1], seq_length)):  # 按照seq_length遍历输入x的长度
+                part_len = x[:, i:i + seq_length].shape[1]  # 通常这个长度等于seq_length，除非数据的末尾可能不足seq_length
 
                 outputs = model(
                     input_ids=x[:, i:i + seq_length],
                     labels=x[:, i:i+seq_length].contiguous(),
                     use_cache=use_cache)
+                loss = outputs.loss
 
-                val_loss = outputs.loss * part_len + val_loss
+                loss.backward()
+
+                # 获取某个自注意力层的梯度
+                attention_layer = model.encoder.layer[0].attention.self
+                attention_weights_grad = attention_layer.query.weight.grad
+
+                val_loss = outputs.loss * part_len + val_loss  # 每个子序列的损失output.loss乘以子序列的长度part_len，以保证损失是按序列长度加权的，然后累加到总损失val_loss中。
                 acc = ((outputs.logits.argmax(-1) == y[:, i:i+seq_length]).float().sum()) + acc
                 cnt += part_len
                 while len(loss_step_list_val) <= part_idx:
