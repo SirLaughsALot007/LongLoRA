@@ -150,7 +150,9 @@ def main(args):
         torch_dtype=torch.float16,
         device_map="auto",
     )
-    model.resize_token_embeddings(32001)
+    model.resize_token_embeddings(32001)  # 调整模型的词嵌入层的大小
+    # 当你有一个比原始预训练模型使用的词汇表更大或更小的词汇表时，需要调整词嵌入层的大小，以确保每个词汇都有一个对应的嵌入向量。意味着模型可以处理一个包含32001个不同词汇的词汇表。
+    # 窗口大小（通常在处理序列数据时被称为“序列长度”或“注意力窗口”）指的是模型在任何时候能够“看到”或者处理的输入序列的最大长度，这通常是指自注意力层可以覆盖的最大序列范围。
 
     if args.peft_model:
         trainable_params = os.path.join(args.peft_model, "trainable_params.bin")
